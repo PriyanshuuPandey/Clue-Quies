@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+  <title>Clue Quies – Quiz App</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AdMob SDK (Rewarded Ads) -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-xxxxxxxxxxxxxxxx" crossorigin="anonymous"></script>
+  <script>
+    // ======================= 🔁 REPLACE WITH YOUR ADMOB APP ID =======================
+    // Your AdMob App ID (e.g., ca-app-pub-xxxxxxxxxxxxx~yyyyyyyyyy)
+    const ADMOB_APP_ID = "ca-app-pub-3381236844572570~7010369357";
+    // Your Rewarded Ad Unit ID (e.g., ca-app-pub-xxxxxxxxxxxxx/zzzzzzzzzz)
+    const REWARDED_AD_UNIT_ID = "ca-app-pub-3381236844572570/1234567890";
+  </script>
+  <style>
+    * { font-family: 'Fredoka', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    @keyframes gentle-bounce { 0% { transform: translateY(0); } 45% { transform: translateY(-12px); } 80% { transform: translateY(4px); } 100% { transform: translateY(0); } }
+    .bounce-click { animation: gentle-bounce 0.35s cubic-bezier(0.34, 1.2, 0.64, 1) forwards; }
+    @keyframes soft-pulse { 0% { transform: scale(1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); } 50% { transform: scale(1.02); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); } 100% { transform: scale(1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); } }
+    .pulse-card { animation: soft-pulse 2s ease-in-out infinite; }
+    @keyframes flash-green { 0% { background-color: #22c55e; transform: scale(1); } 100% { background-color: inherit; transform: scale(0.98); } }
+    .flash-correct { animation: flash-green 0.4s ease-out; }
+    @keyframes flash-red { 0% { background-color: #ef4444; transform: scale(1); } 100% { background-color: inherit; transform: scale(0.98); } }
+    .flash-wrong { animation: flash-red 0.4s ease-out; }
+    .hint-highlight { box-shadow: 0 0 0 4px #facc15, 0 0 0 8px rgba(250, 204, 21, 0.3); background-color: #fef9c3 !important; border: 2px solid #eab308 !important; }
+    .progress-fill { transition: width 0.3s ease-out; }
+    .option-btn:active { transform: scale(0.96); transition: transform 0.05s; }
+    .countdown-overlay { backdrop-filter: blur(8px); background-color: rgba(0, 0, 0, 0.85); }
+    .challenge-card { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 200px; transition: transform 0.1s ease; cursor: pointer; }
+    .challenge-card:active { transform: scale(0.97); }
+    .topic-card { cursor: pointer; transition: all 0.2s ease; }
+    .topic-card:active { transform: scale(0.97); }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-gray-100 antialiased relative min-h-screen">
+
+  <!-- MAIN APP -->
+  <div class="relative flex flex-col min-h-screen">
+    <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-200/80">
+      <div class="flex justify-between items-center px-5 py-3">
+        <div class="flex items-center gap-2">
+          <span class="text-3xl drop-shadow-sm">🔍</span>
+          <h1 class="text-2xl font-bold tracking-wide bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">Clue Quies</h1>
+        </div>
+        <div class="bg-indigo-50 px-4 py-2 rounded-full shadow-inner flex items-center gap-2 border border-indigo-100">
+          <span class="text-indigo-600 text-lg">✅</span>
+          <span class="font-semibold text-indigo-800">Correct:</span>
+          <span id="scoreCounter" class="font-bold text-indigo-900 text-xl">0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 pb-20 relative">
+      <!-- HOME SCREEN -->
+      <div id="homeScreen" class="screen block px-4 pt-5">
+        <div class="max-w-7xl mx-auto">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 auto-rows-fr" id="topicsGrid"></div>
+        </div>
+      </div>
+
+      <!-- CHALLENGE SCREEN -->
+      <div id="challengeScreen" class="screen hidden px-4 pt-4 pb-8">
+        <div class="max-w-3xl mx-auto">
+          <div class="flex items-center gap-4 mb-6">
+            <button id="backToTopicsBtn" class="bg-white/70 backdrop-blur-sm p-3 rounded-full shadow-md hover:bg-white transition-all active:scale-95">
+              <span class="text-3xl">⬅️</span>
+            </button>
+            <div class="bg-indigo-100/60 rounded-2xl px-5 py-2 flex-1">
+              <p class="text-indigo-800 font-semibold text-lg" id="challengeTopicLabel">Choose challenge</p>
+            </div>
+          </div>
+          <div class="flex flex-col gap-6">
+            <div id="challengeQuick" data-limit="20" class="challenge-card w-full bg-gradient-to-br from-emerald-400 to-green-600 rounded-3xl p-6 shadow-xl pulse-card">
+              <div class="text-7xl mb-3 drop-shadow-md">⚡</div>
+              <h2 class="text-3xl font-bold text-white">Quick Sprint</h2>
+              <p class="text-white/90 text-xl mt-1 font-semibold">20 Questions</p>
+            </div>
+            <div id="challengeSuper" data-limit="30" class="challenge-card w-full bg-gradient-to-br from-sky-500 to-blue-700 rounded-3xl p-6 shadow-xl pulse-card">
+              <div class="text-7xl mb-3 drop-shadow-md">⭐</div>
+              <h2 class="text-3xl font-bold text-white">Super Quest</h2>
+              <p class="text-white/90 text-xl mt-1 font-semibold">30 Questions</p>
+            </div>
+            <div id="challengeMega" data-limit="50" class="challenge-card w-full bg-gradient-to-br from-purple-500 to-violet-800 rounded-3xl p-6 shadow-xl pulse-card">
+              <div class="text-7xl mb-3 drop-shadow-md">🏆</div>
+              <h2 class="text-3xl font-bold text-white">Mega Marathon</h2>
+              <p class="text-white/90 text-xl mt-1 font-semibold">50 Questions</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUIZ SCREEN -->
+      <div id="quizScreen" class="screen hidden px-4 pt-3 pb-6">
+        <div class="max-w-2xl mx-auto">
+          <div class="mb-4">
+            <div class="flex justify-between text-sm font-semibold text-gray-600 mb-1">
+              <span id="quizTopicName" class="bg-indigo-100 px-3 py-1 rounded-full">Topic</span>
+              <span id="questionCounter">Question 1/5</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div id="progressFill" class="progress-fill bg-indigo-600 h-3 rounded-full" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-3xl shadow-xl p-6 mb-6 border border-gray-100">
+            <p id="questionText" class="text-2xl font-semibold text-gray-800 leading-tight">Loading...</p>
+          </div>
+          <div class="grid grid-cols-1 gap-4 mb-6" id="optionsContainer"></div>
+          <button id="getHintBtn" class="w-full bg-amber-400 hover:bg-amber-500 text-amber-900 font-bold py-4 rounded-2xl text-xl flex items-center justify-center gap-3 transition-all shadow-md active:scale-97">
+            🔍 Get a Hint <span class="text-sm bg-amber-700/20 px-2 rounded-full">Ad</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RESULT SCREEN -->
+      <div id="resultScreen" class="screen hidden px-4 pt-10 pb-12">
+        <div class="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 text-center">
+          <div class="text-6xl mb-4">🏆✨</div>
+          <h2 class="text-3xl font-bold text-gray-800">Mission Accomplished!</h2>
+          <p class="text-gray-600 text-xl mt-2">Great job!</p>
+          <div class="my-6 bg-indigo-50 rounded-2xl p-4">
+            <p class="text-indigo-800 font-bold text-4xl" id="finalScoreDisplay">0 / 0</p>
+            <p class="text-gray-500 mt-1">Correct Answers</p>
+          </div>
+          <div class="flex flex-col gap-3">
+            <button id="playAgainBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xl transition">🔄 Play Again</button>
+            <button id="resultHomeBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 rounded-xl text-lg transition">🏠 Home</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE SCREEN -->
+      <div id="profileScreen" class="screen hidden px-4 pt-6 pb-8">
+        <div class="max-w-md mx-auto flex flex-col items-center space-y-7">
+          <div class="w-full bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="bg-gradient-to-tr from-purple-100 to-indigo-100 p-3 rounded-2xl">
+                <span class="text-3xl">👤</span>
+              </div>
+              <h2 class="text-2xl font-bold text-gray-800">Player Profile</h2>
+            </div>
+            <div class="space-y-4 divide-y divide-gray-100">
+              <div class="flex justify-between items-center pt-2">
+                <span class="text-gray-600 text-lg font-medium">🏆 Personal Best</span>
+                <span class="text-3xl font-extrabold text-indigo-600" id="personalBest">0</span>
+              </div>
+              <div class="flex justify-between items-center pt-4">
+                <span class="text-gray-600 text-lg font-medium">✅ Total Correct Answers</span>
+                <span class="text-3xl font-extrabold text-amber-600" id="totalCorrect">0</span>
+              </div>
+            </div>
+            <div class="mt-6 text-center text-gray-400 text-sm italic">Keep learning!</div>
+            <button id="clearCacheBtn" class="mt-4 text-xs text-red-500 underline">Clear cached questions (refresh)</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-2xl z-30 flex justify-around items-center py-2 px-4">
+      <button id="homeNavBtn" class="flex flex-col items-center gap-1 py-2 px-6 rounded-2xl active:bg-indigo-50 transition">
+        <span class="text-2xl">🏠</span>
+        <span class="text-sm font-semibold text-gray-700">Home</span>
+      </button>
+      <button id="profileNavBtn" class="flex flex-col items-center gap-1 py-2 px-6 rounded-2xl active:bg-indigo-50 transition">
+        <span class="text-2xl">👤</span>
+        <span class="text-sm font-semibold text-gray-700">Profile</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- START QUIZ MODAL -->
+  <div id="startQuizModal" class="fixed inset-0 z-40 flex items-center justify-center p-4 transition-all duration-200 hidden" style="background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="text-center">
+        <div class="text-5xl mb-3">🔍🧩</div>
+        <h3 class="text-2xl font-bold text-gray-800" id="modalMessage">Ready?</h3>
+        <div class="mt-6 flex flex-col gap-3">
+          <button id="modalStartBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl text-xl">🚀 START</button>
+          <button id="modalCancelBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-xl">Maybe later</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HINT AD OVERLAY (shown while ad is loading/preparing) -->
+  <div id="adOverlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center hidden countdown-overlay">
+    <div class="bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl">
+      <div class="text-5xl mb-3">📺🎁</div>
+      <p class="text-xl font-bold text-gray-800">Loading ad...</p>
+      <div class="text-5xl font-mono font-black mt-4" id="countdownTimer">⏳</div>
+      <p class="text-sm text-gray-500 mt-2">Please wait for the rewarded ad.</p>
+    </div>
+  </div>
+
+  <script>
+    // ======================= 🔁 REPLACE WITH YOUR RAW GITHUB URL =======================
+    const REMOTE_QUESTIONS_URL = "https://raw.githubusercontent.com/PriyanshuuPandey/Clue-Quies/main/questions.json";
+
+    // Fallback mock (used only if fetch fails and no cache)
+    const FALLBACK_MOCK = {
+      "English": [{ text: "What is the synonym of 'Happy'?", options: ["Joyful","Sad","Angry","Tired"], correct:0 }],
+      "Math": [{ text: "15 + 27 = ?", options: ["42","32","41","52"], correct:0 }],
+      "Science": [{ text: "Gas plants absorb?", options: ["Oxygen","Nitrogen","Carbon Dioxide","Hydrogen"], correct:2 }],
+      "Computer": [{ text: "CPU stands for?", options: ["Central Processing Unit","Computer Personal Unit","Core Program Utility","Central Program Use"], correct:0 }],
+      "Geography": [{ text: "Longest river?", options: ["Amazon","Nile","Yangtze","Mississippi"], correct:1 }],
+      "Sports": [{ text: "Soccer players on field?", options: ["10","11","12","9"], correct:1 }],
+      "Entertainment": [{ text: "Iron Man actor?", options: ["Chris Evans","Robert Downey Jr.","Chris Hemsworth","Scarlett Johansson"], correct:1 }],
+      "Inventor": [{ text: "Light bulb inventor?", options: ["Nikola Tesla","Thomas Edison","Alexander Bell","Marie Curie"], correct:1 }],
+      "Politics": [{ text: "Current US President (mock)?", options: ["Joe Biden","Donald Trump","Kamala Harris","Barack Obama"], correct:0 }],
+      "Current Affairs": [{ text: "2024 Summer Olympics host?", options: ["Paris","Los Angeles","Tokyo","London"], correct:0 }]
+    };
+
+    // ======================= GLOBAL STATE =======================
+    let currentTopic = null;
+    let totalQuestions = 0;
+    let currentQuestionsList = [];
+    let currentQIndex = 0;
+    let currentQuizScore = 0;
+    let globalCorrect = 0;
+    let waitingForNext = false;
+    let hintUsedForCurrent = false;
+    let correctAnswerIndexForCurrent = -1;
+    let selectedLimit = 20;
+    let selectedTopicForChallenge = null;
+    
+    // AdMob rewarded ad object
+    let rewardedAd = null;
+    
+    // DOM elements
+    const homeScreen = document.getElementById('homeScreen');
+    const challengeScreen = document.getElementById('challengeScreen');
+    const quizScreen = document.getElementById('quizScreen');
+    const resultScreen = document.getElementById('resultScreen');
+    const profileScreen = document.getElementById('profileScreen');
+    const bottomNav = document.getElementById('bottomNav');
+    const scoreCounterSpan = document.getElementById('scoreCounter');
+    const personalBestSpan = document.getElementById('personalBest');
+    const totalCorrectSpan = document.getElementById('totalCorrect');
+    const getHintBtn = document.getElementById('getHintBtn');
+    const adOverlay = document.getElementById('adOverlay');
+    const countdownTimerSpan = document.getElementById('countdownTimer');
+    
+    // Load stats from localStorage
+    function loadStats() {
+      const savedCorrect = localStorage.getItem('globalCorrect');
+      if (savedCorrect !== null) globalCorrect = parseInt(savedCorrect);
+      const savedBest = localStorage.getItem('personalBest');
+      if (savedBest !== null) personalBestSpan.innerText = savedBest;
+      const savedTotal = localStorage.getItem('totalCorrectAnswers');
+      if (savedTotal !== null) totalCorrectSpan.innerText = savedTotal;
+      scoreCounterSpan.innerText = globalCorrect;
+    }
+    function saveStats() {
+      localStorage.setItem('globalCorrect', globalCorrect);
+      localStorage.setItem('personalBest', personalBestSpan.innerText);
+      localStorage.setItem('totalCorrectAnswers', totalCorrectSpan.innerText);
+    }
+    function updateGlobalScoreUI() { scoreCounterSpan.innerText = globalCorrect; saveStats(); }
+    function updateProfileStats(scoreThisRound) {
+      let currentBest = parseInt(personalBestSpan.innerText);
+      if (scoreThisRound > currentBest) personalBestSpan.innerText = scoreThisRound;
+      let total = parseInt(totalCorrectSpan.innerText);
+      totalCorrectSpan.innerText = total + scoreThisRound;
+      saveStats();
+    }
+    function setBottomNavVisible(visible) { bottomNav.style.display = visible ? 'flex' : 'none'; }
+
+    // ========== CACHED FETCH (works offline) ==========
+    async function fetchQuestionsForTopic(topicName, limit) {
+      const cacheKey = `questions_${topicName}`;
+      let allQuestions = [];
+
+      // Always try to fetch fresh if online
+      const isOnline = navigator.onLine;
+      if (isOnline) {
+        try {
+          const response = await fetch(REMOTE_QUESTIONS_URL);
+          if (response.ok) {
+            const data = await response.json();
+            let freshQuestions = [];
+            if (Array.isArray(data)) {
+              freshQuestions = data.filter(q => q.topic && q.topic.toLowerCase() === topicName.toLowerCase());
+            } else if (data[topicName]) {
+              freshQuestions = data[topicName];
+            }
+            if (freshQuestions.length) {
+              allQuestions = freshQuestions;
+              localStorage.setItem(cacheKey, JSON.stringify(allQuestions));
+              console.log(`✅ Fetched fresh ${topicName} questions: ${allQuestions.length}`);
+            } else {
+              console.warn(`No questions found for ${topicName} in remote JSON, using cache/fallback`);
+            }
+          }
+        } catch (err) {
+          console.warn("Remote fetch failed", err);
+        }
+      }
+
+      // If still no questions, try cache
+      if (!allQuestions.length) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            allQuestions = JSON.parse(cached);
+            console.log(`📦 Using cached ${topicName} questions: ${allQuestions.length}`);
+          } catch(e) {}
+        }
+      }
+
+      // Last resort: fallback mock
+      if (!allQuestions.length) {
+        allQuestions = FALLBACK_MOCK[topicName] || [];
+        console.log(`⚠️ Using fallback mock for ${topicName}`);
+      }
+
+      // Shuffle
+      for (let i = allQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+      }
+      return allQuestions.slice(0, limit);
+    }
+
+    // ========== QUIZ ENGINE ==========
+    async function startQuizEngine(topicObj, limit) {
+      currentTopic = topicObj;
+      selectedLimit = limit;
+      currentQuestionsList = await fetchQuestionsForTopic(topicObj.name, limit);
+      totalQuestions = currentQuestionsList.length;
+      if (totalQuestions === 0) { alert("No questions available."); backToHome(); return; }
+      currentQIndex = 0;
+      currentQuizScore = 0;
+      hintUsedForCurrent = false;
+      waitingForNext = false;
+      homeScreen.classList.add('hidden');
+      challengeScreen.classList.add('hidden');
+      profileScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      quizScreen.classList.remove('hidden');
+      setBottomNavVisible(false);
+      document.getElementById('quizTopicName').innerText = `${topicObj.icon} ${topicObj.name}`;
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      if (currentQIndex >= totalQuestions) {
+        endQuizAndShowResult();
+        return;
+      }
+      hintUsedForCurrent = false;
+      getHintBtn.disabled = false;
+      getHintBtn.classList.remove('opacity-50');
+      const q = currentQuestionsList[currentQIndex];
+      document.getElementById('questionText').innerText = q.text;
+      correctAnswerIndexForCurrent = q.correct;
+      const container = document.getElementById('optionsContainer');
+      container.innerHTML = '';
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.innerText = `${String.fromCharCode(65+idx)}. ${opt}`;
+        btn.className = 'option-btn w-full text-left bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-lg font-medium shadow-sm transition-all';
+        btn.setAttribute('data-opt-index', idx);
+        btn.addEventListener('click', () => handleAnswer(idx, btn));
+        container.appendChild(btn);
+      });
+      document.getElementById('questionCounter').innerHTML = `Question ${currentQIndex+1}/${totalQuestions}`;
+      const percent = (currentQIndex / totalQuestions) * 100;
+      document.getElementById('progressFill').style.width = `${percent}%`;
+      removeHintHighlight();
+    }
+
+    function removeHintHighlight() {
+      document.querySelectorAll('#optionsContainer button').forEach(btn => btn.classList.remove('hint-highlight'));
+    }
+
+    function handleAnswer(selectedIdx, btnElement) {
+      if (waitingForNext) return;
+      const isCorrect = (selectedIdx === correctAnswerIndexForCurrent);
+      if (isCorrect) {
+        btnElement.classList.add('flash-correct');
+        currentQuizScore++;
+        globalCorrect++;
+        updateGlobalScoreUI();
+      } else {
+        btnElement.classList.add('flash-wrong');
+        const allBtns = document.querySelectorAll('#optionsContainer button');
+        if (allBtns[correctAnswerIndexForCurrent]) {
+          allBtns[correctAnswerIndexForCurrent].style.transition = 'background-color 0.2s';
+          allBtns[correctAnswerIndexForCurrent].style.backgroundColor = '#4ade80';
+          setTimeout(() => {
+            if (allBtns[correctAnswerIndexForCurrent]) allBtns[correctAnswerIndexForCurrent].style.backgroundColor = '';
+          }, 800);
+        }
+      }
+      waitingForNext = true;
+      getHintBtn.disabled = true;
+      getHintBtn.classList.add('opacity-50');
+      setTimeout(() => {
+        currentQIndex++;
+        waitingForNext = false;
+        removeHintHighlight();
+        loadQuestion();
+      }, 1000);
+    }
+
+    function endQuizAndShowResult() {
+      quizScreen.classList.add('hidden');
+      resultScreen.classList.remove('hidden');
+      setBottomNavVisible(true);
+      document.getElementById('finalScoreDisplay').innerHTML = `${currentQuizScore} / ${totalQuestions}`;
+      updateProfileStats(currentQuizScore);
+    }
+
+    function backToHome() {
+      homeScreen.classList.remove('hidden');
+      challengeScreen.classList.add('hidden');
+      quizScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      profileScreen.classList.add('hidden');
+      setBottomNavVisible(true);
+    }
+
+    // ========== ADMOB REWARDED AD INTEGRATION ==========
+    function initRewardedAd() {
+      if (typeof google !== 'undefined' && google.ads && google.ads.rewarded) {
+        rewardedAd = new google.ads.rewarded.RewardedAd(REWARDED_AD_UNIT_ID, (rewardedAd) => {
+          rewardedAd.onAdLoaded(() => {
+            console.log("Rewarded ad loaded.");
+            // Remove overlay if shown
+            adOverlay.classList.add('hidden');
+          });
+          rewardedAd.onAdFailedToLoad((error) => {
+            console.error("Rewarded ad failed to load:", error);
+            adOverlay.classList.add('hidden');
+            alert("Ad could not load. Please try again later.");
+            // Re-enable hint button? Better to leave disabled to prevent spam, but we can re-enable
+            getHintBtn.disabled = false;
+            getHintBtn.classList.remove('opacity-50');
+            hintUsedForCurrent = false; // allow retry
+          });
+          rewardedAd.onAdOpened(() => {
+            console.log("Ad opened.");
+          });
+          rewardedAd.onUserEarnedReward((reward) => {
+            console.log("User earned reward:", reward);
+            // Reward the user: reveal correct answer
+            const allBtns = document.querySelectorAll('#optionsContainer button');
+            if (allBtns[correctAnswerIndexForCurrent]) {
+              allBtns[correctAnswerIndexForCurrent].classList.add('hint-highlight');
+            }
+            getHintBtn.disabled = true;
+            getHintBtn.classList.add('opacity-50');
+          });
+          rewardedAd.onAdClosed(() => {
+            console.log("Ad closed.");
+            // If the user didn't earn reward (maybe closed early), we don't give hint.
+            // But we already set hintUsedForCurrent = true, so they can't try again for this question.
+          });
+        });
+      } else {
+        console.warn("AdMob SDK not loaded yet. Delaying ad initialization.");
+        setTimeout(initRewardedAd, 1000);
+      }
+    }
+
+    // Call init when page loads
+    window.addEventListener('load', () => {
+      if (typeof google !== 'undefined' && google.ads && google.ads.rewarded) {
+        initRewardedAd();
+      } else {
+        console.warn("AdMob script not loaded, retrying...");
+        setTimeout(initRewardedAd, 2000);
+      }
+    });
+
+    function showRewardedAd() {
+      if (waitingForNext || hintUsedForCurrent) return;
+      
+      // Internet check
+      if (!navigator.onLine) {
+        alert("No internet connection. Please connect to watch an ad and get a hint.");
+        return;
+      }
+      
+      if (!rewardedAd) {
+        alert("Ad not ready yet. Please try again in a moment.");
+        return;
+      }
+      
+      hintUsedForCurrent = true;
+      getHintBtn.disabled = true;
+      getHintBtn.classList.add('opacity-50');
+      
+      // Show loading overlay
+      adOverlay.classList.remove('hidden');
+      countdownTimerSpan.innerText = "⏳";
+      
+      // Load and show the ad
+      rewardedAd.load().then(() => {
+        // Ad loaded, hide overlay and show ad
+        adOverlay.classList.add('hidden');
+        rewardedAd.show();
+      }).catch(error => {
+        console.error("Failed to load rewarded ad:", error);
+        adOverlay.classList.add('hidden');
+        alert("Ad could not load. Please try again.");
+        getHintBtn.disabled = false;
+        getHintBtn.classList.remove('opacity-50');
+        hintUsedForCurrent = false;
+      });
+    }
+
+    getHintBtn.addEventListener('click', showRewardedAd);
+
+    // ========== TOPIC CARDS ==========
+    const topicsData = [
+      { name: "English", icon: "📚", color: "bg-rose-200 hover:bg-rose-300" }, { name: "Math", icon: "➕", color: "bg-sky-200 hover:bg-sky-300" },
+      { name: "Science", icon: "🧪", color: "bg-emerald-200 hover:bg-emerald-300" }, { name: "Computer", icon: "💻", color: "bg-indigo-200 hover:bg-indigo-300" },
+      { name: "Geography", icon: "🌍", color: "bg-amber-200 hover:bg-amber-300" }, { name: "Sports", icon: "⚽", color: "bg-lime-200 hover:bg-lime-300" },
+      { name: "Entertainment", icon: "🎬", color: "bg-fuchsia-200 hover:bg-fuchsia-300" }, { name: "Inventor", icon: "💡", color: "bg-orange-200 hover:bg-orange-300" },
+      { name: "Politics", icon: "⚖️", color: "bg-violet-200 hover:bg-violet-300" }, { name: "Current Affairs", icon: "📰", color: "bg-cyan-200 hover:bg-cyan-300" }
+    ];
+    const topicsGrid = document.getElementById('topicsGrid');
+    function buildTopicCards() {
+      topicsGrid.innerHTML = '';
+      topicsData.forEach(topic => {
+        const card = document.createElement('div');
+        card.className = `topic-card ${topic.color} rounded-3xl p-6 shadow-md flex flex-col items-center justify-center text-center gap-2 min-h-[140px] border border-white/30 transition-all`;
+        card.innerHTML = `<div class="text-6xl drop-shadow-sm">${topic.icon}</div><span class="font-bold text-gray-800 text-xl tracking-wide">${topic.name}</span>`;
+        card.addEventListener('click', () => {
+          card.classList.add('bounce-click');
+          setTimeout(() => card.classList.remove('bounce-click'), 350);
+          selectedTopicForChallenge = { name: topic.name, icon: topic.icon };
+          document.getElementById('challengeTopicLabel').innerHTML = `Choose challenge for <span class="font-bold">${topic.name} ${topic.icon}</span>`;
+          homeScreen.classList.add('hidden');
+          challengeScreen.classList.remove('hidden');
+          profileScreen.classList.add('hidden');
+          resultScreen.classList.add('hidden');
+          setBottomNavVisible(true);
+        });
+        topicsGrid.appendChild(card);
+      });
+    }
+
+    // ========== NAVIGATION & MODALS ==========
+    document.getElementById('backToTopicsBtn').addEventListener('click', () => {
+      challengeScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+      setBottomNavVisible(true);
+    });
+    function onChallengeClick(limitVal) {
+      if (!selectedTopicForChallenge) return;
+      const modalMsg = `Ready to find clues in ${selectedTopicForChallenge.name}? ${selectedTopicForChallenge.icon}  •  ${limitVal} questions max`;
+      document.getElementById('modalMessage').innerText = modalMsg;
+      const startModal = document.getElementById('startQuizModal');
+      startModal.classList.remove('hidden');
+      const startHandler = () => {
+        startQuizEngine(selectedTopicForChallenge, limitVal);
+        startModal.classList.add('hidden');
+        modalStartBtn.removeEventListener('click', startHandler);
+      };
+      const modalStartBtn = document.getElementById('modalStartBtn');
+      modalStartBtn.removeEventListener('click', startHandler);
+      modalStartBtn.addEventListener('click', startHandler);
+      document.getElementById('modalCancelBtn').onclick = () => startModal.classList.add('hidden');
+    }
+    document.getElementById('challengeQuick').addEventListener('click', () => onChallengeClick(20));
+    document.getElementById('challengeSuper').addEventListener('click', () => onChallengeClick(30));
+    document.getElementById('challengeMega').addEventListener('click', () => onChallengeClick(50));
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+      resultScreen.classList.add('hidden');
+      if (selectedTopicForChallenge) startQuizEngine(selectedTopicForChallenge, selectedLimit);
+      else backToHome();
+    });
+    document.getElementById('resultHomeBtn').addEventListener('click', backToHome);
+    document.getElementById('homeNavBtn').addEventListener('click', () => {
+      homeScreen.classList.remove('hidden');
+      challengeScreen.classList.add('hidden');
+      profileScreen.classList.add('hidden');
+      quizScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      setBottomNavVisible(true);
+    });
+    document.getElementById('profileNavBtn').addEventListener('click', () => {
+      homeScreen.classList.add('hidden');
+      challengeScreen.classList.add('hidden');
+      profileScreen.classList.remove('hidden');
+      quizScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      setBottomNavVisible(true);
+    });
+
+    // ========== CLEAR CACHE (for debugging) ==========
+    document.getElementById('clearCacheBtn').addEventListener('click', () => {
+      if (confirm('Clear all cached questions? Next game will fetch fresh data if online.')) {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('questions_'));
+        keys.forEach(k => localStorage.removeItem(k));
+        alert('Cache cleared. New questions will load on next play.');
+      }
+    });
+
+    // ========== INIT ==========
+    loadStats();
+    buildTopicCards();
+    setBottomNavVisible(true);
+  </script>
+</body>
+</html>
